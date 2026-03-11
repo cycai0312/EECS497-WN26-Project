@@ -5,6 +5,9 @@ struct TodayMedicationCardData: Identifiable {
     let medication: Medication
     let nextReminderText: String
     let lastStatusText: String
+    let completedDoseCountToday: Int
+    let expectedDoseCountToday: Int
+    let showActionButtons: Bool
 }
 
 @MainActor
@@ -14,8 +17,17 @@ enum TodayViewModel {
             .filter(\.isActive)
             .map { medication in
                 let nextReminder = nextReminderText(for: medication, now: now)
-                let lastLog = logs
-                    .filter { $0.medicationID == medication.id }
+                let logsForMedication = logs.filter { $0.medicationID == medication.id }
+                let logsToday = logsForMedication.filter { Calendar.current.isDate($0.timestamp, inSameDayAs: now) }
+                let completedCount = logsToday.filter { $0.status == .taken || $0.status == .skipped }.count
+                let expectedCount = max(1, medication.sortedReminderMinutes.count)
+                let showButtons = shouldShowActionButtons(
+                    medication: medication,
+                    completedCount: completedCount,
+                    now: now
+                )
+
+                let lastLog = logsForMedication
                     .sorted { $0.timestamp > $1.timestamp }
                     .first
 
@@ -30,7 +42,10 @@ enum TodayViewModel {
                     id: medication.id,
                     medication: medication,
                     nextReminderText: nextReminder,
-                    lastStatusText: lastStatus
+                    lastStatusText: lastStatus,
+                    completedDoseCountToday: min(completedCount, expectedCount),
+                    expectedDoseCountToday: expectedCount,
+                    showActionButtons: showButtons
                 )
             }
             .sorted { $0.medication.name < $1.medication.name }
@@ -52,5 +67,23 @@ enum TodayViewModel {
         }
 
         return "No reminders set"
+    }
+
+    private static func shouldShowActionButtons(
+        medication: Medication,
+        completedCount: Int,
+        now: Date
+    ) -> Bool {
+        if let snoozedUntil = medication.snoozedUntil {
+            return now >= snoozedUntil
+        }
+
+        let reminders = medication.sortedReminderMinutes
+        guard !reminders.isEmpty else { return true }
+        guard completedCount < reminders.count else { return false }
+
+        let nextRequiredMinute = reminders[completedCount]
+        let nextRequiredDate = Date.from(minutesSinceMidnight: nextRequiredMinute, referenceDay: now)
+        return now >= nextRequiredDate
     }
 }

@@ -47,8 +47,11 @@ final class NotificationManager: ObservableObject {
 
     func removeNotifications(for medicationID: UUID) async {
         let pending = await pendingRequests()
-        let prefix = "dosealrt.medication.\(medicationID.uuidString)."
-        let ids = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
+        let regularPrefix = "dosealrt.medication.\(medicationID.uuidString)."
+        let snoozePrefix = "dosealrt.snooze.\(medicationID.uuidString)."
+        let ids = pending.map(\.identifier).filter {
+            $0.hasPrefix(regularPrefix) || $0.hasPrefix(snoozePrefix)
+        }
         center.removePendingNotificationRequests(withIdentifiers: ids)
     }
 
@@ -61,6 +64,33 @@ final class NotificationManager: ObservableObject {
 
     private func notificationIdentifier(medicationID: UUID, minute: Int) -> String {
         "dosealrt.medication.\(medicationID.uuidString).\(minute)"
+    }
+
+    func scheduleSnoozeNotification(for medication: Medication, afterMinutes minutes: Int) async {
+        let clampedMinutes = max(1, minutes)
+        await removeSnoozeNotifications(for: medication.id)
+
+        let content = UNMutableNotificationContent()
+        content.title = medication.name
+        content.body = "Reminder again: Time to take your medication."
+        content.sound = .default
+        content.userInfo = ["medicationID": medication.id.uuidString, "isSnooze": true]
+
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: TimeInterval(clampedMinutes * 60),
+            repeats: false
+        )
+
+        let identifier = "dosealrt.snooze.\(medication.id.uuidString)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+
+    func removeSnoozeNotifications(for medicationID: UUID) async {
+        let pending = await pendingRequests()
+        let prefix = "dosealrt.snooze.\(medicationID.uuidString)"
+        let ids = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
     }
 
     private func pendingRequests() async -> [UNNotificationRequest] {

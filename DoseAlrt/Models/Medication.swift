@@ -10,6 +10,7 @@ final class Medication {
     var plainLanguageExplanation: String
     var reminderScheduleData: Data
     var isActive: Bool
+    var snoozedUntil: Date?
     var createdAt: Date
 
     var reminderSchedule: ReminderSchedule {
@@ -36,6 +37,7 @@ final class Medication {
         plainLanguageExplanation: String,
         reminderSchedule: ReminderSchedule,
         isActive: Bool = true,
+        snoozedUntil: Date? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -45,6 +47,7 @@ final class Medication {
         self.plainLanguageExplanation = plainLanguageExplanation
         self.reminderScheduleData = (try? JSONEncoder().encode(reminderSchedule)) ?? Data()
         self.isActive = isActive
+        self.snoozedUntil = snoozedUntil
         self.createdAt = createdAt
     }
 }

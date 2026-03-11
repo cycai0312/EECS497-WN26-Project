@@ -3,6 +3,7 @@ import SwiftData
 
 struct MedicationDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var notificationManager: NotificationManager
     @Query(sort: \DoseLog.timestamp, order: .reverse) private var allLogs: [DoseLog]
 
     let medication: Medication
@@ -53,10 +54,10 @@ struct MedicationDetailView: View {
 
                     HStack(spacing: 12) {
                         PrimaryActionButton(title: "Taken", color: AppTheme.successGreen, systemImage: "checkmark.circle.fill") {
-                            addLog(.taken)
+                            Task { await addLog(.taken) }
                         }
                         PrimaryActionButton(title: "Skipped", color: AppTheme.dangerRed, systemImage: "xmark.circle.fill") {
-                            addLog(.skipped)
+                            Task { await addLog(.skipped) }
                         }
                     }
                 }
@@ -92,8 +93,11 @@ struct MedicationDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func addLog(_ status: DoseStatus) {
+    private func addLog(_ status: DoseStatus) async {
         let repository = LocalMedicationRepository(modelContext: modelContext)
+        medication.snoozedUntil = nil
         try? repository.logDose(for: medication, status: status, at: Date())
+        try? repository.save()
+        await notificationManager.removeSnoozeNotifications(for: medication.id)
     }
 }
