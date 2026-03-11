@@ -2,8 +2,6 @@ import SwiftUI
 import SwiftData
 
 struct MedicationDetailView: View {
-    @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var notificationManager: NotificationManager
     @Query(sort: \DoseLog.timestamp, order: .reverse) private var allLogs: [DoseLog]
 
     let medication: Medication
@@ -48,20 +46,6 @@ struct MedicationDetailView: View {
                 .background(AppTheme.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Quick Log")
-                        .font(.system(size: 22, weight: .bold))
-
-                    HStack(spacing: 12) {
-                        PrimaryActionButton(title: "Taken", color: AppTheme.successGreen, systemImage: "checkmark.circle.fill") {
-                            Task { await addLog(.taken) }
-                        }
-                        PrimaryActionButton(title: "Skipped", color: AppTheme.dangerRed, systemImage: "xmark.circle.fill") {
-                            Task { await addLog(.skipped) }
-                        }
-                    }
-                }
-
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Recent History")
                         .font(.system(size: 22, weight: .bold))
@@ -91,13 +75,5 @@ struct MedicationDetailView: View {
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle("Medication")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func addLog(_ status: DoseStatus) async {
-        let repository = LocalMedicationRepository(modelContext: modelContext)
-        medication.snoozedUntil = nil
-        try? repository.logDose(for: medication, status: status, at: Date())
-        try? repository.save()
-        await notificationManager.removeSnoozeNotifications(for: medication.id)
     }
 }
