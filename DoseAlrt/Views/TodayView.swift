@@ -114,12 +114,36 @@ struct TodayView: View {
     private func snoozeMedication(minutes: Int) async {
         guard let medication = selectedMedicationForSnooze else { return }
         let repository = LocalMedicationRepository(modelContext: modelContext)
+        let now = Date()
 
-        medication.snoozedUntil = Calendar.current.date(byAdding: .minute, value: minutes, to: Date())
-        try? repository.logDose(for: medication, status: .maybeLater, at: Date())
+        let chosenSnooze = Calendar.current.date(byAdding: .minute, value: minutes, to: now) ?? now
+        let nextScheduled = nextScheduledReminderDate(for: medication, from: now)
+        let effectiveSnooze: Date
+        if let nextScheduled {
+            effectiveSnooze = min(chosenSnooze, nextScheduled)
+        } else {
+            effectiveSnooze = chosenSnooze
+        }
+
+        medication.snoozedUntil = effectiveSnooze
+        try? repository.logDose(for: medication, status: .maybeLater, at: now)
         try? repository.save()
 
-        await notificationManager.scheduleSnoozeNotification(for: medication, afterMinutes: minutes)
+        await notificationManager.scheduleSnoozeNotification(for: medication, at: effectiveSnooze)
         selectedMedicationForSnooze = nil
+    }
+
+    private func nextScheduledReminderDate(for medication: Medication, from now: Date) -> Date? {
+        let sorted = medication.sortedReminderMinutes
+        guard !sorted.isEmpty else { return nil }
+
+        let nowMinutes = now.minutesSinceMidnight
+        if let nextTodayMinutes = sorted.first(where: { $0 > nowMinutes }) {
+            return Date.from(minutesSinceMidnight: nextTodayMinutes, referenceDay: now)
+        }
+
+        guard let firstTomorrowMinutes = sorted.first else { return nil }
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
+        return Date.from(minutesSinceMidnight: firstTomorrowMinutes, referenceDay: tomorrow)
     }
 }

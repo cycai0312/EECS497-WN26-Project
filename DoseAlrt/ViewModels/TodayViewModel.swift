@@ -52,6 +52,10 @@ enum TodayViewModel {
     }
 
     private static func nextReminderText(for medication: Medication, now: Date) -> String {
+        if let snoozedUntil = medication.snoozedUntil, snoozedUntil > now {
+            return "Next reminder at \(snoozedUntil.shortTimeString()) (Maybe Later)"
+        }
+
         let todayMinutesNow = now.minutesSinceMidnight
         let sorted = medication.sortedReminderMinutes
 

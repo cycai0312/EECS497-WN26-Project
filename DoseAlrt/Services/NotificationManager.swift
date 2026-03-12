@@ -66,8 +66,7 @@ final class NotificationManager: ObservableObject {
         "dosealrt.medication.\(medicationID.uuidString).\(minute)"
     }
 
-    func scheduleSnoozeNotification(for medication: Medication, afterMinutes minutes: Int) async {
-        let clampedMinutes = max(1, minutes)
+    func scheduleSnoozeNotification(for medication: Medication, at date: Date) async {
         await removeSnoozeNotifications(for: medication.id)
 
         let content = UNMutableNotificationContent()
@@ -76,8 +75,9 @@ final class NotificationManager: ObservableObject {
         content.sound = .default
         content.userInfo = ["medicationID": medication.id.uuidString, "isSnooze": true]
 
+        let interval = max(60, date.timeIntervalSinceNow)
         let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(clampedMinutes * 60),
+            timeInterval: interval,
             repeats: false
         )
 
